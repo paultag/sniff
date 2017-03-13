@@ -141,7 +141,7 @@ func (s *Proxy) Handle(conn net.Conn) {
 		conn.Close()
 		return
 	}
-	n, err := clientConn.Write(data[:length])
+	_, err = clientConn.Write(data[:length])
 	if err != nil {
 		log.Printf("Error: %s", err)
 		conn.Close()
