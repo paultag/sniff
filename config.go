@@ -28,6 +28,7 @@ import (
 type Config struct {
 	Bind    Bind
 	Servers []Server
+	Verbose bool
 }
 
 type Bind struct {
