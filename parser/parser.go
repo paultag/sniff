@@ -82,10 +82,13 @@ func GetSNBlock(data []byte) ([]byte, error) {
 	}
 
 	extensionLength := int((data[index] << 8) + data[index+1])
+	if extensionLength+2 >= len(data) {
+		return []byte{}, fmt.Errorf("Extension looks bonkers")
+	}
 	data = data[2 : extensionLength+2]
 
 	for {
-		if index >= len(data) {
+		if index+3 >= len(data) {
 			break
 		}
 		length := int((data[index+2] << 8) + data[index+3])
