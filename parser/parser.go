@@ -1,22 +1,16 @@
-/* {{{ Copyright (c) Paul R. Tagliamonte <paultag@debian.org>, 2015
+/* {{{ Copyright 2017 Paul Tagliamonte
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE. }}} */
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License. }}} */
 
 package parser
 
@@ -50,6 +44,14 @@ func GetHostname(data []byte) (string, error) {
 	return string(sni), nil
 }
 
+/* Return the length computed from the two octets starting at index */
+func lengthFromData(data []byte, index int) int {
+	b1 := int(data[index])
+	b2 := int(data[index+1])
+
+	return (b1 << 8) + b2
+}
+
 /* Given a Server Name TLS Extension block, parse out and return the SNI
  * (Server Name Indication) payload */
 func GetSNIBlock(data []byte) ([]byte, error) {
@@ -59,11 +61,11 @@ func GetSNIBlock(data []byte) ([]byte, error) {
 		if index >= len(data) {
 			break
 		}
-		length := int((data[index] << 8) + data[index+1])
+		length := lengthFromData(data, index)
 		endIndex := index + 2 + length
 		if data[index+2] == 0x00 { /* SNI */
 			sni := data[index+3:]
-			sniLength := int((sni[0] << 8) + sni[1])
+			sniLength := lengthFromData(sni, 0)
 			return sni[2 : sniLength+2], nil
 		}
 		index = endIndex
@@ -81,14 +83,17 @@ func GetSNBlock(data []byte) ([]byte, error) {
 		return []byte{}, fmt.Errorf("Not enough bytes to be an SN block")
 	}
 
-	extensionLength := int((data[index] << 8) + data[index+1])
+	extensionLength := lengthFromData(data, index)
+	if extensionLength+2 > len(data) {
+		return []byte{}, fmt.Errorf("Extension looks bonkers")
+	}
 	data = data[2 : extensionLength+2]
 
 	for {
 		if index+4 >= len(data) {
 			break
 		}
-		length := int((data[index+2] << 8) + data[index+3])
+		length := lengthFromData(data, index+2)
 		endIndex := index + 4 + length
 		if data[index] == 0x00 && data[index+1] == 0x00 {
 			return data[index+4 : endIndex], nil
@@ -124,7 +129,7 @@ func GetExtensionBlock(data []byte) ([]byte, error) {
 	}
 
 	/* Index is at Cipher List Length bits */
-	if newIndex := (index + 2 + int((data[index]<<8)+data[index+1])); (newIndex + 1) < len(data) {
+	if newIndex := (index + 2 + lengthFromData(data, index)); (newIndex + 1) < len(data) {
 		index = newIndex
 	} else {
 		return []byte{}, fmt.Errorf("Not enough bytes for the Cipher List")

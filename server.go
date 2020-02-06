@@ -1,22 +1,16 @@
-/* {{{ Copyright (c) Paul R. Tagliamonte <paultag@debian.org>, 2015
+/* {{{ Copyright 2017 Paul Tagliamonte
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE. }}} */
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License. }}} */
 
 package main
 
@@ -38,6 +32,7 @@ type ServerAndRegexp struct {
 type Proxy struct {
 	ServerList []ServerAndRegexp
 	Default    *Server
+	Verbose    bool
 }
 
 func (c *Proxy) Get(host string) *Server {
@@ -109,7 +104,9 @@ func (s *Proxy) Handle(conn net.Conn) {
 	var proxy *Server
 	hostname, hostname_err := parser.GetHostname(data[:])
 	if hostname_err == nil {
-		log.Printf("Parsed hostname: %s\n", hostname)
+		if s.Verbose {
+			log.Printf("Parsed hostname: %s\n", hostname)
+		}
 
 		proxy = s.Get(hostname)
 		if proxy == nil {
@@ -118,7 +115,9 @@ func (s *Proxy) Handle(conn net.Conn) {
 			return
 		}
 	} else {
-		log.Printf("Parsed request without hostname")
+		if s.Verbose {
+			log.Printf("Parsed request without hostname")
+		}
 
 		proxy = s.Default
 		if proxy == nil {
@@ -136,8 +135,7 @@ func (s *Proxy) Handle(conn net.Conn) {
 		conn.Close()
 		return
 	}
-	n, err := clientConn.Write(data[:length])
-	log.Printf("Wrote %d bytes\n", n)
+	_, err = clientConn.Write(data[:length])
 	if err != nil {
 		log.Printf("Error: %s", err)
 		conn.Close()
@@ -149,8 +147,6 @@ func (s *Proxy) Handle(conn net.Conn) {
 func Copycat(client, server net.Conn) {
 	defer client.Close()
 	defer server.Close()
-
-	log.Printf("Entering copy routine\n")
 
 	doCopy := func(s, c net.Conn, cancel chan<- bool) {
 		io.Copy(s, c)
@@ -164,7 +160,6 @@ func Copycat(client, server net.Conn) {
 
 	select {
 	case <-cancel:
-		log.Printf("Disconnect\n")
 		return
 	}
 
