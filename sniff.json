@@ -14,5 +14,6 @@
             ],
             "port": 443
         }
-    ]
+    ],
+    "verbose": false
 }

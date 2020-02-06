@@ -32,6 +32,7 @@ type ServerAndRegexp struct {
 type Proxy struct {
 	ServerList []ServerAndRegexp
 	Default    *Server
+	Verbose    bool
 }
 
 func (c *Proxy) Get(host string) *Server {
@@ -103,7 +104,9 @@ func (s *Proxy) Handle(conn net.Conn) {
 	var proxy *Server
 	hostname, hostname_err := parser.GetHostname(data[:])
 	if hostname_err == nil {
-		log.Printf("Parsed hostname: %s\n", hostname)
+		if s.Verbose {
+			log.Printf("Parsed hostname: %s\n", hostname)
+		}
 
 		proxy = s.Get(hostname)
 		if proxy == nil {
@@ -112,7 +115,9 @@ func (s *Proxy) Handle(conn net.Conn) {
 			return
 		}
 	} else {
-		log.Printf("Parsed request without hostname")
+		if s.Verbose {
+			log.Printf("Parsed request without hostname")
+		}
 
 		proxy = s.Default
 		if proxy == nil {
@@ -130,8 +135,7 @@ func (s *Proxy) Handle(conn net.Conn) {
 		conn.Close()
 		return
 	}
-	n, err := clientConn.Write(data[:length])
-	log.Printf("Wrote %d bytes\n", n)
+	_, err = clientConn.Write(data[:length])
 	if err != nil {
 		log.Printf("Error: %s", err)
 		conn.Close()
@@ -143,8 +147,6 @@ func (s *Proxy) Handle(conn net.Conn) {
 func Copycat(client, server net.Conn) {
 	defer client.Close()
 	defer server.Close()
-
-	log.Printf("Entering copy routine\n")
 
 	doCopy := func(s, c net.Conn, cancel chan<- bool) {
 		io.Copy(s, c)
@@ -158,7 +160,6 @@ func Copycat(client, server net.Conn) {
 
 	select {
 	case <-cancel:
-		log.Printf("Disconnect\n")
 		return
 	}
 
