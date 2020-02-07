@@ -90,7 +90,7 @@ func GetSNBlock(data []byte) ([]byte, error) {
 	data = data[2 : extensionLength+2]
 
 	for {
-		if index+3 >= len(data) {
+		if index+4 >= len(data) {
 			break
 		}
 		length := lengthFromData(data, index+2)
